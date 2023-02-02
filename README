@@ -1,0 +1,89 @@
+@Name: Dumitrescu Alexandra
+@From: 333CA
+@For: Tema2 - APD - Java Threading
+______________________________________________
+@ Table of Contents
+    [1.] 1st Layer Threads - Order Processors
+    [2.] 2nd Layer Threads - Product Processors
+    [3.] Synchronization Details
+______________________________________________
+@ Suppose
+    P = maximum number of threads per layer
+______________________________________________
+@ 1st Layer Threads
+    [1.1] Definition
+        1st Layer threads are meant to equally share the orders in the
+        orders.txt input file.
+
+    [1.2] Restrictions
+        No thread is allowed to read line by line all input file
+
+    [1.3] Share the orders
+        We first get total number of bytes of the input file and
+        then split the entire file into P chunks of equal size.
+        For more details, see README_BONUS
+
+    [1.4] Workflow
+         After deciding the corresponding chunk of bytes, the thread reads
+         every line and parses the given order.
+
+         For each
+            <order_id, total_number_of_products>
+         adds in the pool of tasks for the 2nd layer threads
+         <total_number_of_products> new tasks.
+
+         Each task is given the order_id and the i, index for the
+         corresponding product to be searched.
+            i = 1:total_number_of_products
+
+         Wait for all tasks to be done and then mark in the output file
+         that the order has been shipped.
+
+    [1.5] Synchronization details
+        Each thread is waiting for the tasks of the order to be finished.
+        I used a list of semaphores to announce each thread when to exit
+            vector<Semaphores> semaphores[P + 1]
+        the waiting state.
+
+        Suppose we have thread 1 wanting to ship the command <o_example, 3>
+        It parses the line and adds the following tasks:
+            <o_example, 1> [Search for 1st product from order o_example]
+            <o_example, 2> [Search for 2nd product from order o_example]
+            <o_example, 3> [Search for 3rd product from order o_example]
+        We initialize
+            semaphore[1] = -3 + 1 [Meaning that only when all 3 threads
+            found the 3 products and released the semaphore the tasks are
+            shipped and the main thread can add the shipped order]
+
+______________________________________________
+@ 2nd Layer Threads
+    [2.1] Definition
+        2nd Layer threads are meant given an order id and an index of the
+        product and are meant to ship the corresponding product
+
+    [2.2] Share the products
+        We use the executor service pattern. Each 1st layer thread
+        adds tasks in the pool and each 2nd layer thread gets one
+        task.
+
+        Each task is unique and therefore, we do not need to previously
+        check if a product is already sent by another thread, because
+        each task has its unique element.
+
+    [2.3] Workflow
+        The thread gets one task and reads each line in the input file
+        until it finds the corresponding product. When found, writes
+        the result in the output file and releases the semaphore
+        See [1.5]
+
+________________________________________________
+@ Synchronization Details
+    [3.1] We do not allow multiple threads to write at the same time in the
+          output files. Therefore, we used semaphores with 1 permits to make
+          sure only one thread writes at a time.
+
+    [3.2] We used a semaphore with 1 permit for incrementing the counter
+          of threads that have added tasks in the pool
+
+    [3.3] The executor service is being shut down one all 1st layer threads
+          have added their tasks in the pool.
